@@ -1,0 +1,44 @@
+body {
+            font-family: 'Cairo', sans-serif;
+            background-color: #F8FAFC;
+            color: #1E293B;
+        }
+        .gradient-banner {
+            background: linear-gradient(135deg, #1B3F6B 0%, #0B8BC4 100%);
+        }
+        .hero-pattern {
+            background-image: radial-gradient(rgba(13, 148, 136, 0.1) 1px, transparent 0);
+            background-size: 24px 24px;
+        }
+        .active-tab {
+            color: #0B8BC4 !important;
+            font-weight: 700;
+            border-bottom: 3px solid #0B8BC4;
+        }
+        /* Custom scrollbar */
+        ::-webkit-scrollbar {
+            width: 8px;
+        }
+        ::-webkit-scrollbar-track {
+            background: #F1F5F9;
+        }
+        ::-webkit-scrollbar-thumb {
+            background: #0B8BC4;
+            border-radius: 4px;
+        }
+        ::-webkit-scrollbar-thumb:hover {
+            background: #1B3F6B;
+        }
+    
+        .madar-logo {
+            background-image: url("assets/logo.png");
+            background-size: contain;
+            background-repeat: no-repeat;
+            background-position: center;
+        }
+        @keyframes madarFloat {
+            0%, 100% { transform: translateY(0) rotate(0deg); }
+            50% { transform: translateY(-10px) rotate(3deg); }
+        }
+        .animate-madar-float { animation: madarFloat 6s ease-in-out infinite; }
+        .nav-link.active-tab, .active-tab { position: relative; }
