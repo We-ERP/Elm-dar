@@ -1,0 +1,339 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>لوحة تحكم المدار</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+<link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700;900&display=swap" rel="stylesheet">
+<script>
+tailwind.config = { theme: { extend: { colors: { nait: { navy:'#1B3F6B', teal:'#0B8BC4', gold:'#F28C28', darkNavy:'#0B2540' } }, fontFamily:{ cairo:['Cairo','sans-serif'] } } } }
+</script>
+<style>
+  body { font-family: 'Cairo', sans-serif; background:#F1F5F9; }
+  .tab-btn.active { background:#0B8BC4; color:#fff; }
+  .toast { transition: all .3s; }
+</style>
+</head>
+<body class="min-h-screen text-slate-800">
+
+<!-- LOGIN -->
+<div id="login" class="min-h-screen flex items-center justify-center p-4">
+  <form id="login-form" class="bg-white rounded-3xl shadow-xl p-8 w-full max-w-sm space-y-5">
+    <div class="text-center space-y-2">
+      <div class="w-14 h-14 mx-auto rounded-2xl bg-nait-navy text-white flex items-center justify-center text-2xl"><i class="fa-solid fa-lock"></i></div>
+      <h1 class="text-xl font-black text-nait-navy">لوحة تحكم المدار</h1>
+      <p class="text-xs text-slate-500">ادخل كلمة السر للمتابعة</p>
+    </div>
+    <input id="pw" type="password" required placeholder="كلمة السر" class="w-full px-4 py-3 rounded-xl border border-slate-200 focus:border-nait-teal focus:outline-none text-center">
+    <p id="login-err" class="text-xs text-red-600 text-center hidden"></p>
+    <button class="w-full bg-nait-teal hover:bg-sky-700 text-white font-bold py-3 rounded-xl">دخول</button>
+  </form>
+</div>
+
+<!-- APP -->
+<div id="app" class="hidden">
+  <header class="bg-nait-darkNavy text-white px-4 py-3 flex items-center justify-between sticky top-0 z-40">
+    <div class="font-black">لوحة تحكم المدار</div>
+    <div class="flex items-center gap-3">
+      <button id="refresh" class="text-xs bg-white/10 hover:bg-white/20 px-3 py-2 rounded-lg"><i class="fa-solid fa-rotate"></i> تحديث</button>
+      <a href="index.html" target="_blank" class="text-xs bg-white/10 hover:bg-white/20 px-3 py-2 rounded-lg"><i class="fa-solid fa-eye"></i> عرض الموقع</a>
+      <button id="logout" class="text-xs bg-red-500/80 hover:bg-red-500 px-3 py-2 rounded-lg">خروج</button>
+    </div>
+  </header>
+
+  <div class="max-w-7xl mx-auto p-4 md:p-6 grid md:grid-cols-[220px_1fr] gap-6">
+    <nav class="bg-white rounded-2xl p-3 shadow-sm h-fit flex md:flex-col gap-2 overflow-x-auto">
+      <button class="tab-btn active px-4 py-3 rounded-xl font-bold text-sm text-right whitespace-nowrap" data-tab="settings"><i class="fa-solid fa-sliders w-5"></i> إعدادات الموقع</button>
+      <button class="tab-btn px-4 py-3 rounded-xl font-bold text-sm text-right whitespace-nowrap" data-tab="Instructors"><i class="fa-solid fa-user-doctor w-5"></i> المحاضرين</button>
+      <button class="tab-btn px-4 py-3 rounded-xl font-bold text-sm text-right whitespace-nowrap" data-tab="Courses"><i class="fa-solid fa-graduation-cap w-5"></i> الكورسات والأسعار</button>
+      <button class="tab-btn px-4 py-3 rounded-xl font-bold text-sm text-right whitespace-nowrap" data-tab="Videos"><i class="fa-solid fa-circle-play w-5"></i> الفيديوهات</button>
+      <button class="tab-btn px-4 py-3 rounded-xl font-bold text-sm text-right whitespace-nowrap" data-tab="Bookings"><i class="fa-solid fa-inbox w-5"></i> الحجوزات والرسائل</button>
+    </nav>
+
+    <main class="bg-white rounded-2xl p-5 shadow-sm min-h-[60vh]">
+      <div class="flex items-center justify-between mb-5 gap-3 flex-wrap">
+        <h2 id="title" class="text-lg font-black text-nait-navy"></h2>
+        <button id="add-btn" class="bg-nait-teal hover:bg-sky-700 text-white font-bold text-sm px-4 py-2.5 rounded-xl"><i class="fa-solid fa-plus"></i> إضافة</button>
+      </div>
+      <div id="content"></div>
+    </main>
+  </div>
+</div>
+
+<!-- FORM MODAL -->
+<div id="modal" class="hidden fixed inset-0 z-50 bg-slate-900/60 flex items-center justify-center p-4">
+  <div class="bg-white rounded-3xl w-full max-w-2xl max-h-[90vh] overflow-y-auto p-6">
+    <div class="flex justify-between items-center mb-4">
+      <h3 id="modal-title" class="font-black text-nait-navy text-lg"></h3>
+      <button onclick="closeModal()" class="text-2xl text-slate-500">&times;</button>
+    </div>
+    <form id="modal-form" class="grid md:grid-cols-2 gap-4"></form>
+  </div>
+</div>
+
+<div id="toast" class="toast fixed bottom-6 left-1/2 -translate-x-1/2 bg-nait-darkNavy text-white px-5 py-3 rounded-xl text-sm opacity-0 translate-y-10 z-[60]"></div>
+
+<script src="config.js"></script>
+<script>
+const API = window.EL_MADAR_API;
+let PW = sessionStorage.getItem('elm_pw') || '';
+let DATA = { settings: {}, Instructors: [], Courses: [], Videos: [], Bookings: [] };
+let TAB = 'settings';
+let EDIT_ID = null;
+
+const $ = s => document.querySelector(s);
+const esc = s => String(s == null ? '' : s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+
+function toast(msg, ok = true) {
+  const t = $('#toast'); t.textContent = msg; t.classList.remove('opacity-0','translate-y-10');
+  t.style.background = ok ? '' : '#b91c1c';
+  setTimeout(() => t.classList.add('opacity-0','translate-y-10'), 2800);
+}
+
+async function api(action, payload = {}) {
+  const res = await fetch(API, {
+    method: 'POST',
+    headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+    body: JSON.stringify({ action, password: PW, ...payload })
+  });
+  return res.json();
+}
+
+// ---------- Auth ----------
+$('#login-form').addEventListener('submit', async e => {
+  e.preventDefault();
+  PW = $('#pw').value;
+  const r = await api('login').catch(() => ({ ok: false, error: 'تعذر الاتصال بالسيرفر' }));
+  if (r.ok) { sessionStorage.setItem('elm_pw', PW); enter(); }
+  else { $('#login-err').textContent = r.error || 'كلمة السر غير صحيحة'; $('#login-err').classList.remove('hidden'); }
+});
+$('#logout').onclick = () => { sessionStorage.removeItem('elm_pw'); location.reload(); };
+$('#refresh').onclick = () => load();
+
+function enter() { $('#login').classList.add('hidden'); $('#app').classList.remove('hidden'); load(); }
+if (PW && API && API.indexOf('PASTE_') === -1) enter();
+
+// ---------- Load ----------
+async function load() {
+  if (!API || API.indexOf('PASTE_') !== -1) { toast('لازم تحط رابط الـ API في config.js', false); return; }
+  const r = await api('list');
+  if (!r.ok) { toast(r.error || 'خطأ في التحميل', false); return; }
+  DATA = r.data;
+  render();
+}
+
+// ---------- Tabs ----------
+document.querySelectorAll('.tab-btn').forEach(b => b.onclick = () => {
+  TAB = b.dataset.tab;
+  document.querySelectorAll('.tab-btn').forEach(x => x.classList.toggle('active', x === b));
+  render();
+});
+
+const TITLES = { settings:'إعدادات الموقع', Instructors:'المحاضرين', Courses:'الكورسات والأسعار', Videos:'الفيديوهات', Bookings:'الحجوزات والرسائل' };
+const CATS = [['personality','اضطرابات الشخصية'],['mood','المزاج والقلق'],['family','الاستشارات الزوجية والأسرية']];
+const LOCS = [['online','أونلاين'],['cairo','حضور: القاهرة'],['alex','حضور: الإسكندرية'],['dubai','حضور: دبي وجدة']];
+const SETTINGS_FIELDS = [
+  ['doctor_name','اسم الدكتور','text'], ['phone_local','الهاتف (01xxxxxxxxx)','text'], ['phone_intl','الهاتف دولي بدون 00 (2010xxxxxxxx)','text'],
+  ['email','الإيميل','text'], ['announcement_text','نص شريط الإعلان العلوي','text']
+];
+
+const ENTITIES = {
+  Instructors: { fields: [
+      ['name','الاسم','text',1], ['title','المسمى الوظيفي','text',1], ['category','القسم (يظهر في الفلاتر)','select',1, CATS],
+      ['price','السعر (نص حر مثل: 500 جنيه / الجلسة)','text',1], ['photo','صورة المحاضر','image',1],
+      ['bio','نبذة','textarea',2], ['order_no','الترتيب','number',1], ['active','ظاهر في الموقع','check',1]],
+    cols: ['name','title','category','price','active'] },
+  Courses: { fields: [
+      ['title','اسم الكورس','text',2], ['description','الوصف','textarea',2],
+      ['instructor_id','المحاضر','select',1, 'INSTRUCTORS'], ['type_label','النوع (دبلوم معتمد / دورة...)','text',1],
+      ['duration','المدة','text',1], ['price','السعر ($)','number',1], ['discount_percent','الخصم %','number',1],
+      ['locations','طريقة الحضور','checks',2, LOCS], ['image','صورة الكورس','image',2],
+      ['order_no','الترتيب','number',1], ['active','ظاهر في الموقع','check',1]],
+    cols: ['title','price','discount_percent','locations','active'] },
+  Videos: { fields: [
+      ['course_id','الكورس','select',1,'COURSES'], ['title','عنوان الفيديو','text',1],
+      ['url','رابط الفيديو (YouTube / Drive) أو ارفع ملف','video',2],
+      ['order_no','الترتيب','number',1], ['active','ظاهر في الموقع','check',1]],
+    cols: ['title','course_id','url','active'] },
+  Bookings: { cols: ['created_at','type','name','phone','details'] }
+};
+
+function optionsFor(src) {
+  if (src === 'INSTRUCTORS') return DATA.Instructors.map(i => [i.id, i.name]);
+  if (src === 'COURSES') return DATA.Courses.map(c => [c.id, c.title]);
+  return src;
+}
+const labelOf = (list, v) => { const f = (list || []).find(x => String(x[0]) === String(v)); return f ? f[1] : v; };
+
+function render() {
+  $('#title').textContent = TITLES[TAB];
+  $('#add-btn').style.display = (TAB === 'settings' || TAB === 'Bookings') ? 'none' : '';
+  if (TAB === 'settings') return renderSettings();
+  if (TAB === 'Bookings') return renderBookings();
+  renderTable(TAB);
+}
+
+// ---------- Settings ----------
+function renderSettings() {
+  const s = DATA.settings || {};
+  $('#content').innerHTML = `
+    <form id="settings-form" class="grid md:grid-cols-2 gap-4">
+      ${SETTINGS_FIELDS.map(([k,l]) => `
+        <label class="block ${k==='announcement_text'?'md:col-span-2':''}">
+          <span class="text-xs font-bold text-slate-600">${l}</span>
+          <input name="${k}" value="${esc(s[k]||'')}" class="mt-1 w-full px-4 py-2.5 rounded-xl border border-slate-200 focus:border-nait-teal focus:outline-none text-sm">
+        </label>`).join('')}
+      <div class="md:col-span-2"><button class="bg-nait-teal hover:bg-sky-700 text-white font-bold px-6 py-3 rounded-xl">حفظ الإعدادات</button></div>
+    </form>`;
+  $('#settings-form').onsubmit = async e => {
+    e.preventDefault();
+    const data = Object.fromEntries(new FormData(e.target).entries());
+    const r = await api('settings', { data });
+    toast(r.ok ? 'تم حفظ الإعدادات ✔' : (r.error||'خطأ'), r.ok);
+    if (r.ok) load();
+  };
+}
+
+// ---------- Tables ----------
+function cell(col, row) {
+  if (col === 'active') return row.active === true || String(row.active).toUpperCase() === 'TRUE'
+      ? '<span class="text-emerald-600 font-bold text-xs">ظاهر</span>' : '<span class="text-slate-400 text-xs">مخفي</span>';
+  if (col === 'category') return esc(labelOf(CATS, row.category));
+  if (col === 'instructor_id') return esc((DATA.Instructors.find(i => i.id == row.instructor_id) || {}).name || '');
+  if (col === 'course_id') return esc((DATA.Courses.find(c => c.id == row.course_id) || {}).title || '');
+  if (col === 'locations') return String(row.locations||'').split(',').filter(Boolean).map(l => labelOf(LOCS,l)).join(' / ');
+  if (col === 'price' && row.discount_percent) return `${row.price}$ ← خصم ${row.discount_percent}%`;
+  if (col === 'price') return esc(row.price);
+  if (col === 'discount_percent') return row.discount_percent ? row.discount_percent + '%' : '—';
+  if (col === 'url') return row.url ? `<a href="${esc(row.url)}" target="_blank" class="text-nait-teal underline">فتح</a>` : '';
+  if (col === 'created_at') return esc(new Date(row.created_at).toLocaleString('ar-EG'));
+  if (col === 'details') { try { const d = JSON.parse(row.details); return esc(Object.entries(d).map(([k,v])=>`${k}: ${v}`).join(' | ')).slice(0,160); } catch { return ''; } }
+  return esc(row[col]);
+}
+
+function renderTable(entity) {
+  const rows = (DATA[entity] || []).slice().sort((a,b) => (Number(a.order_no)||0) - (Number(b.order_no)||0));
+  const cfg = ENTITIES[entity];
+  $('#content').innerHTML = rows.length ? `
+    <div class="overflow-x-auto"><table class="w-full text-sm">
+      <thead><tr class="text-right text-slate-500 border-b">${cfg.cols.map(c=>`<th class="py-3 px-2 font-bold">${labelFor(c)}</th>`).join('')}<th></th></tr></thead>
+      <tbody>${rows.map(r => `
+        <tr class="border-b hover:bg-slate-50">
+          ${cfg.cols.map(c=>`<td class="py-3 px-2">${cell(c,r)}</td>`).join('')}
+          <td class="py-3 px-2 whitespace-nowrap text-left">
+            <button onclick="editRow('${entity}','${r.id}')" class="text-nait-teal font-bold text-xs ml-3"><i class="fa-solid fa-pen"></i> تعديل</button>
+            <button onclick="deleteRow('${entity}','${r.id}')" class="text-red-600 font-bold text-xs"><i class="fa-solid fa-trash"></i> حذف</button>
+          </td></tr>`).join('')}
+      </tbody></table></div>` : `<p class="text-slate-500 text-sm py-10 text-center">لا توجد بيانات بعد — اضغط "إضافة"</p>`;
+}
+const LABELS = { name:'الاسم', title:'العنوان', category:'القسم', price:'السعر', active:'الحالة', discount_percent:'الخصم', locations:'الحضور', url:'الرابط', course_id:'الكورس', instructor_id:'المحاضر', created_at:'التاريخ', type:'النوع', phone:'الهاتف', details:'التفاصيل' };
+const labelFor = c => LABELS[c] || c;
+
+// ---------- Bookings ----------
+function renderBookings() {
+  const rows = (DATA.Bookings || []).slice().reverse();
+  $('#content').innerHTML = rows.length ? `
+    <div class="overflow-x-auto"><table class="w-full text-sm">
+      <thead><tr class="text-right text-slate-500 border-b">${ENTITIES.Bookings.cols.map(c=>`<th class="py-3 px-2 font-bold">${labelFor(c)}</th>`).join('')}<th></th></tr></thead>
+      <tbody>${rows.map(r=>`<tr class="border-b hover:bg-slate-50">
+        ${ENTITIES.Bookings.cols.map(c=>`<td class="py-3 px-2 align-top">${cell(c,r)}</td>`).join('')}
+        <td class="py-3 px-2"><button onclick="deleteRow('Bookings','${r.id}')" class="text-red-600 text-xs font-bold"><i class="fa-solid fa-trash"></i></button></td>
+      </tr>`).join('')}</tbody></table></div>` : `<p class="text-slate-500 text-sm py-10 text-center">لا توجد رسائل بعد</p>`;
+}
+
+// ---------- Form ----------
+function openForm(entity, row) {
+  EDIT_ID = row ? row.id : null;
+  const cfg = ENTITIES[entity];
+  $('#modal-title').textContent = (row ? 'تعديل: ' : 'إضافة: ') + TITLES[entity];
+  const v = k => row ? (row[k] ?? '') : '';
+  const active = row ? (row.active === true || String(row.active).toUpperCase() === 'TRUE') : true;
+  $('#modal-form').innerHTML = cfg.fields.map(([k,label,type,span,opts]) => {
+    const wrap = `class="block ${span===2?'md:col-span-2':''}"`;
+    const head = `<span class="text-xs font-bold text-slate-600">${label}</span>`;
+    const inputCls = 'mt-1 w-full px-4 py-2.5 rounded-xl border border-slate-200 focus:border-nait-teal focus:outline-none text-sm';
+    if (type === 'select') {
+      const list = optionsFor(opts);
+      return `<label ${wrap}>${head}<select name="${k}" class="${inputCls}">
+        ${list.map(([val,lab]) => `<option value="${esc(val)}" ${String(v(k))===String(val)?'selected':''}>${esc(lab)}</option>`).join('')}</select></label>`;
+    }
+    if (type === 'textarea') return `<label ${wrap}>${head}<textarea name="${k}" rows="3" class="${inputCls}">${esc(v(k))}</textarea></label>`;
+    if (type === 'number') return `<label ${wrap}>${head}<input type="number" step="any" name="${k}" value="${esc(v(k))}" class="${inputCls}"></label>`;
+    if (type === 'check') return `<label class="flex items-center gap-2 md:col-span-2"><input type="checkbox" name="${k}" ${active?'checked':''} class="w-5 h-5 accent-nait-teal">${head}</label>`;
+    if (type === 'checks') {
+      const sel = String(v(k)).split(',');
+      return `<div ${wrap}>${head}<div class="mt-1 grid grid-cols-2 gap-2">${opts.map(([val,lab])=>`
+        <label class="flex items-center gap-2 text-sm border rounded-xl px-3 py-2"><input type="checkbox" name="${k}" value="${val}" ${sel.includes(val)?'checked':''} class="accent-nait-teal">${lab}</label>`).join('')}</div></div>`;
+    }
+    if (type === 'image' || type === 'video') {
+      return `<div ${wrap}>${head}
+        <div class="flex gap-2 mt-1"><input name="${k}" id="f-${k}" value="${esc(v(k))}" placeholder="الصق رابط أو ارفع ملف" class="${inputCls} flex-1">
+        <label class="bg-slate-100 hover:bg-slate-200 px-4 rounded-xl flex items-center cursor-pointer text-xs font-bold whitespace-nowrap">
+          <i class="fa-solid fa-upload ml-2"></i> رفع
+          <input type="file" class="hidden" accept="${type==='image'?'image/*':'video/*,.pdf'}" onchange="uploadTo('${k}', this, ${type==='image'?5:25})"></label></div>
+        <p id="up-${k}" class="text-[11px] text-slate-500 mt-1"></p>
+        ${type==='image' && v(k) ? `<img src="${esc(v(k))}" class="mt-2 h-20 rounded-lg">` : ''}</div>`;
+    }
+    return `<label ${wrap}>${head}<input name="${k}" value="${esc(v(k))}" class="${inputCls}"></label>`;
+  }).join('') + `
+    <div class="md:col-span-2 flex gap-3 pt-2">
+      <button class="bg-nait-teal hover:bg-sky-700 text-white font-bold px-6 py-3 rounded-xl">حفظ</button>
+      <button type="button" onclick="closeModal()" class="bg-slate-100 px-6 py-3 rounded-xl font-bold">إلغاء</button>
+    </div>`;
+  $('#modal-form').dataset.entity = entity;
+  $('#modal').classList.remove('hidden');
+}
+function closeModal() { $('#modal').classList.add('hidden'); }
+
+$('#add-btn').onclick = () => openForm(TAB);
+function editRow(entity, id) { openForm(entity, (DATA[entity]||[]).find(r => String(r.id) === String(id))); }
+
+$('#modal-form').addEventListener('submit', async e => {
+  e.preventDefault();
+  const entity = e.target.dataset.entity;
+  const cfg = ENTITIES[entity];
+  const fd = new FormData(e.target);
+  const row = { id: EDIT_ID || '' };
+  cfg.fields.forEach(([k,,type]) => {
+    if (type === 'check') row[k] = e.target.elements[k].checked;
+    else if (type === 'checks') row[k] = fd.getAll(k).join(',');
+    else if (type === 'number') row[k] = fd.get(k) === '' ? '' : Number(fd.get(k));
+    else row[k] = fd.get(k) || '';
+  });
+  const r = await api('save', { table: entity, data: row });
+  toast(r.ok ? 'تم الحفظ ✔ (اتسجل في الشيت)' : (r.error||'خطأ'), r.ok);
+  if (r.ok) { closeModal(); load(); }
+});
+
+async function deleteRow(entity, id) {
+  if (!confirm('متأكد من الحذف؟')) return;
+  const r = await api('delete', { table: entity, id });
+  toast(r.ok ? 'تم الحذف' : (r.error||'خطأ'), r.ok);
+  if (r.ok) load();
+}
+
+// ---------- Upload ----------
+async function uploadTo(field, input, maxMB) {
+  const file = input.files[0]; if (!file) return;
+  if (file.size > maxMB * 1024 * 1024) { toast(`الملف أكبر من ${maxMB}MB`, false); return; }
+  const note = document.getElementById('up-' + field);
+  note.textContent = 'جاري الرفع...';
+  const base64 = await new Promise((res, rej) => {
+    const r = new FileReader();
+    r.onload = () => res(r.result.split(',')[1]);
+    r.onerror = rej;
+    r.readAsDataURL(file);
+  });
+  const r = await api('upload', { name: file.name, mime: file.type || 'application/octet-stream', base64 });
+  if (r.ok) {
+    document.getElementById('f-' + field).value = r.url;
+    note.textContent = 'تم الرفع ✔';
+    toast('تم رفع الملف ✔');
+  } else { note.textContent = ''; toast(r.error || 'فشل الرفع', false); }
+}
+window.uploadTo = uploadTo;
+</script>
+</body>
+</html>
